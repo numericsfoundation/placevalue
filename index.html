@@ -1,0 +1,266 @@
+the filename.
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Numerics | Place Value and Building Tens</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;font-size:14px}
+.app{width:min(100%,1100px);min-height:620px;margin:22px auto;border:1px solid #ddd;border-radius:20px;padding:19px 16px 23px}
+.top{text-align:center;font-size:12px;color:#475569;letter-spacing:.03em}
+.count{text-align:center;font-weight:700;font-size:26px;margin:8px 0 22px}
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+.heading{text-align:center;font-weight:700;font-size:16px;margin:0 0 10px}
+.sub{text-align:center;font-size:11px;color:#64748b;height:20px}
+.labels{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;font-size:10px;margin:0 0 5px;font-weight:600}
+.grid{display:grid;gap:3px;margin:auto}
+.pv{grid-template-columns:repeat(9,minmax(0,1fr));grid-template-rows:repeat(3,44px)}
+.bt{grid-template-columns:repeat(6,minmax(0,1fr));grid-template-rows:repeat(5,63px)}
+.slot{border:1px solid #d1d5db;background:#f2f3f4;display:grid;place-items:center;min-width:0;min-height:0}
+.unit{background:#cbb76a;border:1px solid #968448;width:70%;height:69%;border-radius:2px}
+.ten{background:#3d6b50;border:1px solid #28503a;width:76%;height:76%;border-radius:3px;display:grid;place-items:center;color:white;font-size:11px;font-weight:bold}
+.hundred{background:#183c61;border:1px solid #112c47;width:78%;height:78%;display:grid;place-items:center;color:white;font-size:11px;font-weight:bold}
+.struct{text-align:center;font-size:11px;color:#64748b;margin-top:12px;height:18px}
+.controls{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin-top:30px}
+.btn{border-radius:99px;border:1px solid #d5d5d5;padding:12px 19px;font-size:14px;cursor:pointer;background:#f5f5f5;color:#111}
+.btn.primary{background:#111;color:white;border-color:#111;font-weight:700}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.shortcuts{display:flex;justify-content:center;gap:6px;margin-top:12px;flex-wrap:wrap}
+.quick{background:#fff;border:1px solid #d0d0d0;border-radius:99px;color:#555;cursor:pointer;padding:5px 9px;font-size:12px}
+.quick.active{border-color:#111;color:#111;font-weight:bold}
+.info{text-align:center;margin:21px 5px 0;font-size:13px;line-height:1.5}
+.legend{text-align:center;font-size:11px;color:#667085;margin-top:10px}
+.status{font-weight:600}
+.status.alert{color:#975c00}
+@media(max-width:690px){
+.app{margin:4px auto;border-radius:12px;padding:14px 8px;min-height:auto}
+.panels{grid-template-columns:1fr;gap:25px}
+.pv{grid-template-rows:repeat(3,34px)}
+.bt{grid-template-rows:repeat(5,44px)}
+.count{margin-bottom:15px}
+.controls{margin-top:23px}
+.btn{padding:10px 13px}
+}
+</style>
+</head>
+<body>
+<main class="app">
+<div class="top">SHARED COUNT</div>
+<div class="count" id="count">0</div>
+
+<div class="panels">
+<section aria-label="Place Value">
+<h2 class="heading">Place Value</h2>
+<div class="sub">9 spaces per place</div>
+<div class="labels">
+<span>Hundreds</span><span>Tens</span><span>Ones</span>
+</div>
+<div class="grid pv" id="pv"></div>
+<div class="struct" id="pvstr">0 H · 0 T · 0 O</div>
+</section>
+
+<section aria-label="Building Tens">
+<h2 class="heading">Building Tens</h2>
+<div class="sub">10 spaces per place</div>
+<div class="labels">
+<span>Hundreds</span><span>Tens</span><span>Ones</span>
+</div>
+<div class="grid bt" id="bt"></div>
+<div class="struct" id="btstr">0 H · 0 T · 0 O</div>
+</section>
+</div>
+
+<div class="controls">
+<button class="btn primary" id="add">+ Add One</button>
+<button class="btn" id="bundle">Bundle Ten</button>
+<button class="btn" id="reset">↶ Reset</button>
+</div>
+
+<div class="shortcuts" id="shortcuts"></div>
+
+<div class="info" id="info">
+Click <b>Add One</b> to advance both models.
+At the tenth count, compare what happens before bundling.
+</div>
+
+<div class="legend">
+Place Value exchanges automatically at ten.
+Building Tens waits for you to bundle.
+</div>
+</main>
+
+<script>
+'use strict';
+
+let count = 0;
+let building = {h:0,t:0,o:0};
+
+const qs = [9,10,19,20,99,100];
+const byId = id => document.getElementById(id);
+
+function unit(kind) {
+  const e = document.createElement('div');
+  e.className = kind;
+  return e;
+}
+
+function drawGrid(id, model) {
+  const root = byId(id);
+  root.replaceChildren();
+
+  const columns = id === 'pv' ? 9 : 6;
+  const colsPerPlace = columns / 3;
+  const rows = id === 'pv' ? 3 : 5;
+
+  for(let row=0;row<rows;row++) {
+    for(let col=0;col<columns;col++) {
+      const place = Math.floor(col/colsPerPlace);
+      const index = row*colsPerPlace+(col%colsPerPlace);
+      const n = [model.h,model.t,model.o][place];
+
+      const cell = document.createElement('div');
+      cell.className = 'slot';
+
+      if(index<n) {
+        cell.appendChild(
+          unit(['hundred','ten','unit'][place])
+        );
+      }
+
+      root.appendChild(cell);
+    }
+  }
+}
+
+function canonical(n) {
+  return {
+    h:Math.floor(n/100),
+    t:Math.floor(n%100/10),
+    o:n%10
+  };
+}
+
+function canBundle() {
+  return building.o===10 || building.t===10;
+}
+
+function render() {
+  const pv = canonical(count);
+
+  drawGrid('pv',pv);
+  drawGrid('bt',building);
+
+  byId('count').textContent = count;
+
+  byId('pvstr').textContent =
+    `${pv.h} H · ${pv.t} T · ${pv.o} O`;
+
+  byId('btstr').textContent =
+    `${building.h} H · ${building.t} T · ${building.o} O`;
+
+  byId('add').disabled =
+    count>=100 || building.o>=10;
+
+  byId('bundle').disabled = !canBundle();
+
+  document.querySelectorAll('.quick').forEach(x =>
+    x.classList.toggle(
+      'active',
+      Number(x.dataset.n)===count
+    )
+  );
+
+  const el = byId('info');
+  el.className = 'info';
+
+  if(count===9) {
+    el.innerHTML =
+      'At <b>9</b>, both models show nine ones. What will change when we add one?';
+  }
+  else if(count===10 && building.o===10) {
+    el.innerHTML =
+      '<span class="status alert">At 10:</span> Place Value shows <b>1 ten and 0 ones</b>. Building Tens still shows <b>10 ones</b>. Choose <b>Bundle Ten</b> to exchange them.';
+  }
+  else if(count===10) {
+    el.innerHTML =
+      'Both now show <b>1 ten and 0 ones</b>, but they arrived there differently.';
+  }
+  else if(building.o===10) {
+    el.innerHTML =
+      'The Building Tens model now has <b>10 ones</b>. Bundle those ones before adding more.';
+  }
+  else if(building.t===10) {
+    el.innerHTML =
+      'The Building Tens model has <b>10 tens</b>. Bundle them into one hundred.';
+  }
+  else {
+    el.innerHTML =
+      'Click <b>Add One</b> to advance both models. At the tenth count, compare what happens before bundling.';
+  }
+}
+
+function add() {
+  if(count>=100 || building.o===10) return;
+
+  count++;
+  building.o++;
+  render();
+}
+
+function bundle() {
+  if(building.o===10) {
+    building.o=0;
+    building.t++;
+  }
+  else if(building.t===10) {
+    building.t=0;
+    building.h++;
+  }
+
+  render();
+}
+
+function reset() {
+  count=0;
+  building={h:0,t:0,o:0};
+  render();
+}
+
+function jump(n) {
+  count=n;
+  const c=canonical(n);
+  building={...c};
+
+  if(n!==0 && n%10===0) {
+    if(n===100) {
+      building={h:0,t:9,o:10};
+    }
+    else {
+      building.t--;
+      building.o=10;
+    }
+  }
+
+  render();
+}
+
+byId('add').addEventListener('click',add);
+byId('bundle').addEventListener('click',bundle);
+byId('reset').addEventListener('click',reset);
+
+for(const n of qs) {
+  const b=document.createElement('button');
+  b.className='quick';
+  b.dataset.n=n;
+  b.textContent=n;
+  b.addEventListener('click',()=>jump(n));
+  byId('shortcuts').appendChild(b);
+}
+
+render();
+</script>
+</body>
+</html>
